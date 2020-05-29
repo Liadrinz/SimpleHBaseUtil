@@ -47,12 +47,12 @@ public class Main {
         doSomeModifies();
         System.out.println("==============================");
         System.out.println("After Some Modifications:");
-        printScanEachColumn();
+        printScanEachColumnFamily();
 
         doSomeDelete();
         System.out.println("==============================");
         System.out.println("After Some Deletions");
-        printScanEachColumn();
+        printScanEachColumnFamily();
     }
     private static void createAndMigrate() {
         hBaseUtil.createTable("student", new String[] {"info", "course"});
@@ -65,6 +65,12 @@ public class Main {
                     stu[0], stu[1], stu[2], stu[3],
                     cour[0], cour[1], cour[2], sc[2]
             });
+        }
+    }
+    private static void printScanEachColumnFamily() {
+        for (String field : new String[] {"info", "course"}) {
+            List<String> scanResult = hBaseUtil.scanColumn("student", field);
+            System.out.println(field + ": " + scanResult);
         }
     }
     private static void printScanEachColumn() {

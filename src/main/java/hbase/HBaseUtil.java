@@ -12,6 +12,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class HBaseUtil implements IHBase {
     private final Configuration conf;
@@ -50,7 +51,7 @@ public class HBaseUtil implements IHBase {
                 String[] familyCol = fields[i].split(":");
                 put.addColumn(familyCol[0].getBytes(), familyCol[1].getBytes(), values[i].getBytes());
             }
-            new HTablePool().getTable(tableName).put(put);
+            conn.getTable(TableName.valueOf(tableName)).put(put);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -58,19 +59,28 @@ public class HBaseUtil implements IHBase {
 
     public List<String> scanColumn(String tableName, String column) {
         try {
+            Table table = conn.getTable(TableName.valueOf(tableName));
             List<String> results = new ArrayList<String>();
-            Table table = new HTablePool().getTable(tableName);
             Scan scan = new Scan();
             ResultScanner scanner = table.getScanner(scan);
+            String[] familyCol = column.split(":");
             for (Result result : scanner) {
-                String[] familyCol = column.split(":");
-                List<Cell> cells = result.getColumnCells(familyCol[0].getBytes(), familyCol[1].getBytes());
-                if (cells.size() == 0) return null;
-                StringBuilder rowResult = new StringBuilder();
-                for (Cell cell : cells) {
-                    rowResult.append(Bytes.toString(cell.getValue()));
+                if (familyCol.length == 2) {
+                    List<Cell> cells = result.getColumnCells(familyCol[0].getBytes(), familyCol[1].getBytes());
+                    if (cells.size() == 0) return null;
+                    StringBuilder rowResult = new StringBuilder();
+                    for (Cell cell : cells) {
+                        rowResult.append(Bytes.toString(cell.getValue()));
+                    }
+                    results.add(rowResult.toString());
+                } else {
+                    Map<byte[], byte[]> families = result.getFamilyMap(familyCol[0].getBytes());
+                    List<String> rowResult = new ArrayList<String>();
+                    for (byte[] key : families.keySet()) {
+                        rowResult.add(Bytes.toString(families.get(key)));
+                    }
+                    results.add("\n" + rowResult.toString());
                 }
-                results.add(rowResult.toString());
             }
             return results;
         } catch (IOException e) {
@@ -84,7 +94,7 @@ public class HBaseUtil implements IHBase {
             Put put = new Put(row.getBytes());
             String[] familyCol = column.split(":");
             put.addColumn(familyCol[0].getBytes(), familyCol[1].getBytes(), newValue.getBytes());
-            new HTablePool().getTable(tableName).put(put);
+            conn.getTable(TableName.valueOf(tableName)).put(put);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -93,7 +103,7 @@ public class HBaseUtil implements IHBase {
     public void deleteRow(String tableName, String row) {
         try {
             Delete delete = new Delete(row.getBytes());
-            new HTablePool().getTable(tableName).delete(delete);
+            conn.getTable(TableName.valueOf(tableName)).delete(delete);
         } catch (IOException e) {
             e.printStackTrace();
         }
